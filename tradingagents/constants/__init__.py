@@ -9,6 +9,12 @@ from .data_sources import (
     DATA_SOURCE_REGISTRY,
     get_data_source_info,
     list_all_data_sources,
+    list_data_sources_by_access_tier,
+    list_data_sources_by_capability,
+    list_data_sources_by_market,
+    list_data_sources_by_market_and_capability,
+    list_data_sources_for_strategy,
+    list_free_data_sources,
     is_data_source_supported,
 )
 
@@ -18,6 +24,11 @@ __all__ = [
     'DATA_SOURCE_REGISTRY',
     'get_data_source_info',
     'list_all_data_sources',
+    'list_data_sources_by_access_tier',
+    'list_data_sources_by_capability',
+    'list_data_sources_by_market',
+    'list_data_sources_by_market_and_capability',
+    'list_data_sources_for_strategy',
+    'list_free_data_sources',
     'is_data_source_supported',
 ]
-

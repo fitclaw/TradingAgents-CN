@@ -169,7 +169,11 @@ class DataSourceType(str, Enum):
     FINNHUB = "finnhub"
     YAHOO_FINANCE = "yahoo_finance"
     ALPHA_VANTAGE = "alpha_vantage"
+    SEC_EDGAR = "sec_edgar"
     IEX_CLOUD = "iex_cloud"
+
+    # 新闻/社媒/宏观数据源
+    GROK_X = "grok_x"
 
     # 专业数据源
     WIND = "wind"
