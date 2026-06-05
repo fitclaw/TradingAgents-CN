@@ -93,6 +93,70 @@ ANALYSIS_DEPTH_REQUIREMENTS = {
 # 常见模型的默认能力配置（用于初始化和参考）
 DEFAULT_MODEL_CAPABILITIES: Dict[str, Dict[str, Any]] = {
     # ==================== 阿里百炼 (DashScope) ====================
+    "qwen3.7-plus": {
+        "capability_level": 5,
+        "suitable_roles": [ModelRole.BOTH],
+        "features": [ModelFeature.TOOL_CALLING, ModelFeature.LONG_CONTEXT, ModelFeature.REASONING],
+        "recommended_depths": ["快速", "基础", "标准", "深度", "全面"],
+        "performance_metrics": {"speed": 4, "cost": 3, "quality": 5},
+        "description": "Qwen3.7 Plus，百炼推荐平衡模型，1M上下文，支持工具调用、思考模式和结构化输出"
+    },
+    "qwen3.7-max": {
+        "capability_level": 5,
+        "suitable_roles": [ModelRole.DEEP_ANALYSIS],
+        "features": [ModelFeature.TOOL_CALLING, ModelFeature.LONG_CONTEXT, ModelFeature.REASONING],
+        "recommended_depths": ["标准", "深度", "全面"],
+        "performance_metrics": {"speed": 3, "cost": 2, "quality": 5},
+        "description": "Qwen3.7 Max，Qwen Max 系列新一代旗舰模型，适合复杂推理和长周期任务"
+    },
+    "qwen3.6-plus": {
+        "capability_level": 5,
+        "suitable_roles": [ModelRole.BOTH],
+        "features": [ModelFeature.TOOL_CALLING, ModelFeature.LONG_CONTEXT, ModelFeature.REASONING, ModelFeature.VISION],
+        "recommended_depths": ["快速", "基础", "标准", "深度", "全面"],
+        "performance_metrics": {"speed": 4, "cost": 3, "quality": 5},
+        "description": "Qwen3.6 Plus，多模态平衡模型，支持图像、视频、工具调用和1M上下文"
+    },
+    "qwen3.6-flash": {
+        "capability_level": 4,
+        "suitable_roles": [ModelRole.QUICK_ANALYSIS],
+        "features": [ModelFeature.TOOL_CALLING, ModelFeature.LONG_CONTEXT, ModelFeature.REASONING, ModelFeature.VISION, ModelFeature.FAST_RESPONSE, ModelFeature.COST_EFFECTIVE],
+        "recommended_depths": ["快速", "基础", "标准", "深度"],
+        "performance_metrics": {"speed": 5, "cost": 5, "quality": 4},
+        "description": "Qwen3.6 Flash，多模态快速模型，适合低成本图像、视频和文本分析"
+    },
+    "qwen3-vl-plus": {
+        "capability_level": 4,
+        "suitable_roles": [ModelRole.BOTH],
+        "features": [ModelFeature.TOOL_CALLING, ModelFeature.LONG_CONTEXT, ModelFeature.REASONING, ModelFeature.VISION],
+        "recommended_depths": ["快速", "基础", "标准", "深度"],
+        "performance_metrics": {"speed": 3, "cost": 3, "quality": 5},
+        "description": "Qwen3-VL Plus，视觉理解旗舰模型，适合图片、视频、图表和文档识别"
+    },
+    "qwen3-vl-flash": {
+        "capability_level": 3,
+        "suitable_roles": [ModelRole.QUICK_ANALYSIS],
+        "features": [ModelFeature.TOOL_CALLING, ModelFeature.REASONING, ModelFeature.VISION, ModelFeature.FAST_RESPONSE, ModelFeature.COST_EFFECTIVE],
+        "recommended_depths": ["快速", "基础", "标准"],
+        "performance_metrics": {"speed": 5, "cost": 5, "quality": 4},
+        "description": "Qwen3-VL Flash，快速视觉理解模型，适合图像识别和视频理解"
+    },
+    "qwen-vl-ocr-latest": {
+        "capability_level": 3,
+        "suitable_roles": [ModelRole.QUICK_ANALYSIS],
+        "features": [ModelFeature.VISION, ModelFeature.FAST_RESPONSE],
+        "recommended_depths": ["快速", "基础", "标准"],
+        "performance_metrics": {"speed": 4, "cost": 4, "quality": 4},
+        "description": "Qwen VL OCR Latest，面向文档、表格、试卷和手写内容的 OCR 提取模型"
+    },
+    "qwen3-omni-flash": {
+        "capability_level": 3,
+        "suitable_roles": [ModelRole.QUICK_ANALYSIS],
+        "features": [ModelFeature.VISION, ModelFeature.FAST_RESPONSE, ModelFeature.COST_EFFECTIVE],
+        "recommended_depths": ["快速", "基础", "标准"],
+        "performance_metrics": {"speed": 5, "cost": 4, "quality": 4},
+        "description": "Qwen3 Omni Flash，全模态快速模型，覆盖图像、音频和视频理解场景"
+    },
     "qwen-turbo": {
         "capability_level": 1,
         "suitable_roles": [ModelRole.QUICK_ANALYSIS],
@@ -185,13 +249,21 @@ DEFAULT_MODEL_CAPABILITIES: Dict[str, Dict[str, Any]] = {
     },
     
     # ==================== DeepSeek ====================
-    "deepseek-chat": {
-        "capability_level": 3,
+    "deepseek-v4-flash": {
+        "capability_level": 4,
         "suitable_roles": [ModelRole.BOTH],
-        "features": [ModelFeature.TOOL_CALLING, ModelFeature.LONG_CONTEXT, ModelFeature.COST_EFFECTIVE],
-        "recommended_depths": ["基础", "标准", "深度"],
-        "performance_metrics": {"speed": 4, "cost": 5, "quality": 4},
-        "description": "DeepSeek Chat，性价比高"
+        "features": [ModelFeature.TOOL_CALLING, ModelFeature.LONG_CONTEXT, ModelFeature.FAST_RESPONSE, ModelFeature.COST_EFFECTIVE],
+        "recommended_depths": ["快速", "基础", "标准", "深度"],
+        "performance_metrics": {"speed": 5, "cost": 5, "quality": 4},
+        "description": "DeepSeek V4 Flash，快速分析模型"
+    },
+    "deepseek-v4-pro": {
+        "capability_level": 5,
+        "suitable_roles": [ModelRole.DEEP_ANALYSIS],
+        "features": [ModelFeature.TOOL_CALLING, ModelFeature.LONG_CONTEXT, ModelFeature.REASONING],
+        "recommended_depths": ["标准", "深度", "全面"],
+        "performance_metrics": {"speed": 3, "cost": 3, "quality": 5},
+        "description": "DeepSeek V4 Pro，深度推理模型"
     },
     
     # ==================== 百度文心 (Qianfan) ====================
@@ -347,6 +419,60 @@ DEFAULT_MODEL_CAPABILITIES: Dict[str, Dict[str, Any]] = {
         "performance_metrics": {"speed": 2, "cost": 2, "quality": 5},
         "description": "Moonshot V1 128K，超长上下文旗舰"
     },
+
+    # ==================== MiniMax Token Plan ====================
+    "MiniMax-M3": {
+        "capability_level": 4,
+        "suitable_roles": [ModelRole.BOTH],
+        "features": [ModelFeature.TOOL_CALLING, ModelFeature.LONG_CONTEXT, ModelFeature.REASONING],
+        "recommended_depths": ["快速", "基础", "标准", "深度"],
+        "performance_metrics": {"speed": 4, "cost": 3, "quality": 4},
+        "description": "MiniMax M3 Token Plan，中国节点模型"
+    },
+    "MiniMax-M2.7": {
+        "capability_level": 3,
+        "suitable_roles": [ModelRole.BOTH],
+        "features": [ModelFeature.TOOL_CALLING, ModelFeature.LONG_CONTEXT],
+        "recommended_depths": ["快速", "基础", "标准"],
+        "performance_metrics": {"speed": 3, "cost": 3, "quality": 4},
+        "description": "MiniMax M2.7 Token Plan，中国节点模型"
+    },
+    "MiniMax-M2.7-highspeed": {
+        "capability_level": 3,
+        "suitable_roles": [ModelRole.QUICK_ANALYSIS],
+        "features": [ModelFeature.TOOL_CALLING, ModelFeature.FAST_RESPONSE, ModelFeature.COST_EFFECTIVE],
+        "recommended_depths": ["快速", "基础", "标准"],
+        "performance_metrics": {"speed": 5, "cost": 3, "quality": 3},
+        "description": "MiniMax M2.7 Highspeed Token Plan，中国节点快速模型"
+    },
+
+    # ==================== Kimi Code Token Plan ====================
+    "kimi-for-coding": {
+        "capability_level": 4,
+        "suitable_roles": [ModelRole.BOTH],
+        "features": [ModelFeature.TOOL_CALLING, ModelFeature.LONG_CONTEXT, ModelFeature.REASONING],
+        "recommended_depths": ["快速", "基础", "标准", "深度"],
+        "performance_metrics": {"speed": 4, "cost": 3, "quality": 4},
+        "description": "Kimi Code Token Plan 固定模型，中国节点入口"
+    },
+
+    # ==================== Kimi / Moonshot API ====================
+    "kimi-k2.6": {
+        "capability_level": 5,
+        "suitable_roles": [ModelRole.BOTH],
+        "features": [ModelFeature.TOOL_CALLING, ModelFeature.LONG_CONTEXT, ModelFeature.REASONING],
+        "recommended_depths": ["标准", "深度", "全面"],
+        "performance_metrics": {"speed": 3, "cost": 3, "quality": 5},
+        "description": "Kimi K2.6，中国开放平台模型"
+    },
+    "kimi-k2.5": {
+        "capability_level": 4,
+        "suitable_roles": [ModelRole.BOTH],
+        "features": [ModelFeature.TOOL_CALLING, ModelFeature.LONG_CONTEXT, ModelFeature.REASONING],
+        "recommended_depths": ["基础", "标准", "深度"],
+        "performance_metrics": {"speed": 4, "cost": 3, "quality": 4},
+        "description": "Kimi K2.5，中国开放平台模型"
+    },
 }
 
 
@@ -464,4 +590,3 @@ def parse_aggregator_model(model_name: str) -> Tuple[str, str]:
         parts = model_name.split("/", 1)
         return parts[0], parts[1]
     return "", model_name
-

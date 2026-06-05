@@ -57,7 +57,21 @@ def create_llm_by_provider(provider: str, model: str, backend_url: str, temperat
 
     normalized_provider = normalize_provider_key(provider)
 
-    if normalized_provider in {"openai", "siliconflow", "openrouter", "aihubmix", "ollama", "deepseek", "qwen", "glm", "custom_openai", "qianfan"}:
+    if normalized_provider in {
+        "openai",
+        "siliconflow",
+        "openrouter",
+        "aihubmix",
+        "minimax_tokenplan",
+        "kimi_code",
+        "moonshot",
+        "ollama",
+        "deepseek",
+        "qwen",
+        "glm",
+        "custom_openai",
+        "qianfan",
+    }:
         if not api_key:
             if normalized_provider == "siliconflow":
                 api_key = os.getenv('SILICONFLOW_API_KEY')

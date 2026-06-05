@@ -19,6 +19,9 @@ _OPENAI_COMPATIBLE = {
     "qianfan",
     "openrouter",
     "aihubmix",
+    "minimax_tokenplan",
+    "kimi_code",
+    "moonshot",
     "ollama",
     "custom_openai",
 }

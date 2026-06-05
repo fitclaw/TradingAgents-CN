@@ -246,11 +246,11 @@ const presetProviders = [
   {
     name: 'dashscope',
     display_name: '阿里云百炼',
-    description: '阿里云百炼大模型服务平台，提供通义千问等模型',
+    description: '阿里云百炼大模型服务平台，提供 Qwen3.7、Qwen3.6、Qwen3-VL、OCR、Omni 等文本与多模态模型。环境变量：DASHSCOPE_API_KEY。',
     website: 'https://bailian.console.aliyun.com',
-    api_doc_url: 'https://help.aliyun.com/zh/dashscope/',
-    default_base_url: 'https://dashscope.aliyuncs.com/api/v1',
-    supported_features: ['chat', 'completion', 'embedding', 'function_calling', 'streaming'],
+    api_doc_url: 'https://help.aliyun.com/zh/model-studio/',
+    default_base_url: 'https://dashscope.aliyuncs.com/compatible-mode/v1',
+    supported_features: ['chat', 'completion', 'embedding', 'vision', 'image', 'function_calling', 'streaming'],
     register_url: 'https://account.aliyun.com/register/qr_register.htm',
     register_guide: '如果您还没有阿里云账号，请先注册并开通百炼服务：'
   },
@@ -268,13 +268,46 @@ const presetProviders = [
   {
     name: 'deepseek',
     display_name: 'DeepSeek',
-    description: 'DeepSeek提供高性能的AI推理服务',
+    description: 'DeepSeek 提供 V4 Flash 和 V4 Pro 模型，适合中文金融分析中的快速分析与深度推理任务。环境变量：DEEPSEEK_API_KEY。',
     website: 'https://www.deepseek.com',
     api_doc_url: 'https://platform.deepseek.com/api-docs',
     default_base_url: 'https://api.deepseek.com',
     supported_features: ['chat', 'completion', 'function_calling', 'streaming'],
     register_url: 'https://platform.deepseek.com/sign_up',
     register_guide: '如果您还没有 DeepSeek 账号，请先注册并获取 API Key：'
+  },
+  {
+    name: 'minimax_tokenplan',
+    display_name: 'MiniMax Token Plan',
+    description: 'MiniMax Token Plan 中国节点入口，使用独立 Token Plan API Key，不与普通 MiniMax 按量 API Key 或 OpenAI Key 混用。环境变量：MINIMAX_TOKEN_PLAN_API_KEY。',
+    website: 'https://platform.minimaxi.com',
+    api_doc_url: 'https://platform.minimaxi.com/docs/api-reference/text-openai-api',
+    default_base_url: 'https://api.minimaxi.com/v1',
+    supported_features: ['chat', 'completion', 'function_calling', 'streaming'],
+    register_url: 'https://platform.minimaxi.com',
+    register_guide: '如果您还没有 MiniMax Token Plan Key，请先登录 MiniMax 中国平台获取：'
+  },
+  {
+    name: 'kimi_code',
+    display_name: 'Kimi Code Token Plan',
+    description: 'Kimi Code Token Plan 中国节点入口，固定模型 kimi-for-coding，不与 Moonshot 按量 API Key 混用。环境变量：KIMI_CODE_API_KEY。',
+    website: 'https://www.kimi.com',
+    api_doc_url: 'https://www.kimi.com/code/docs',
+    default_base_url: 'https://api.kimi.com/coding/v1',
+    supported_features: ['chat', 'completion', 'function_calling', 'streaming'],
+    register_url: 'https://www.kimi.com',
+    register_guide: '如果您还没有 Kimi Code Token Plan Key，请先在 Kimi Code 页面获取：'
+  },
+  {
+    name: 'moonshot',
+    display_name: 'Kimi / Moonshot API',
+    description: 'Kimi 中国开放平台按量 API 入口，使用 Moonshot 中国节点，不与 Kimi Code Token Plan Key 混用。环境变量：MOONSHOT_API_KEY。',
+    website: 'https://platform.kimi.com',
+    api_doc_url: 'https://platform.kimi.com/docs/api/overview',
+    default_base_url: 'https://api.moonshot.cn/v1',
+    supported_features: ['chat', 'completion', 'function_calling', 'streaming'],
+    register_url: 'https://platform.kimi.com',
+    register_guide: '如果您还没有 Moonshot API Key，请先登录 Kimi 中国开放平台获取：'
   },
   {
     name: 'openai',

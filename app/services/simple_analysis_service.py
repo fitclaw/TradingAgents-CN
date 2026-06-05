@@ -344,11 +344,19 @@ def _get_default_provider_by_model(model_name: str) -> str:
     # 模型名称到供应商的默认映射
     model_provider_map = {
         # 阿里百炼 (DashScope)
-        'qwen-turbo': 'qwen',
-        'qwen-plus': 'qwen',
-        'qwen-max': 'qwen',
-        'qwen-plus-latest': 'qwen',
-        'qwen-max-longcontext': 'qwen',
+        'qwen3.7-plus': 'dashscope',
+        'qwen3.7-max': 'dashscope',
+        'qwen3.6-plus': 'dashscope',
+        'qwen3.6-flash': 'dashscope',
+        'qwen3-vl-plus': 'dashscope',
+        'qwen3-vl-flash': 'dashscope',
+        'qwen-vl-ocr-latest': 'dashscope',
+        'qwen3-omni-flash': 'dashscope',
+        'qwen-turbo': 'dashscope',
+        'qwen-plus': 'dashscope',
+        'qwen-max': 'dashscope',
+        'qwen-plus-latest': 'dashscope',
+        'qwen-max-longcontext': 'dashscope',
 
         # OpenAI
         'gpt-3.5-turbo': 'openai',
@@ -363,8 +371,21 @@ def _get_default_provider_by_model(model_name: str) -> str:
         'gemini-2.0-flash-thinking-exp': 'google',
 
         # DeepSeek
-        'deepseek-chat': 'deepseek',
-        'deepseek-coder': 'deepseek',
+        'deepseek-v4-flash': 'deepseek',
+        'deepseek-v4-pro': 'deepseek',
+
+        # MiniMax Token Plan
+        'MiniMax-M3': 'minimax_tokenplan',
+        'MiniMax-M2.7': 'minimax_tokenplan',
+        'MiniMax-M2.7-highspeed': 'minimax_tokenplan',
+
+        # Kimi Code Token Plan
+        'kimi-for-coding': 'kimi_code',
+
+        # Kimi / Moonshot API
+        'kimi-k2.6': 'moonshot',
+        'kimi-k2.5': 'moonshot',
+        'moonshot-v1-128k': 'moonshot',
 
         # 智谱AI
         'glm-4': 'glm',

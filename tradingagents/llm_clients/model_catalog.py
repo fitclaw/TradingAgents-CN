@@ -53,25 +53,62 @@ MODEL_OPTIONS: ProviderModeOptions = {
     },
     "deepseek": {
         "quick": [
-            ("DeepSeek Chat", "deepseek-chat"),
+            ("DeepSeek V4 Flash - Fast", "deepseek-v4-flash"),
             ("Custom model ID", "custom"),
         ],
         "deep": [
-            ("DeepSeek Chat", "deepseek-chat"),
-            ("DeepSeek Reasoner", "deepseek-reasoner"),
+            ("DeepSeek V4 Pro - Strong reasoning", "deepseek-v4-pro"),
+            ("Custom model ID", "custom"),
+        ],
+    },
+    "minimax_tokenplan": {
+        "quick": [
+            ("MiniMax M3 - Token Plan", "MiniMax-M3"),
+            ("MiniMax M2.7 Highspeed - Token Plan", "MiniMax-M2.7-highspeed"),
+            ("Custom model ID", "custom"),
+        ],
+        "deep": [
+            ("MiniMax M3 - Token Plan", "MiniMax-M3"),
+            ("MiniMax M2.7 - Token Plan", "MiniMax-M2.7"),
+            ("Custom model ID", "custom"),
+        ],
+    },
+    "kimi_code": {
+        "quick": [
+            ("Kimi for Coding - Token Plan", "kimi-for-coding"),
+            ("Custom model ID", "custom"),
+        ],
+        "deep": [
+            ("Kimi for Coding - Token Plan", "kimi-for-coding"),
+            ("Custom model ID", "custom"),
+        ],
+    },
+    "moonshot": {
+        "quick": [
+            ("Kimi K2.6", "kimi-k2.6"),
+            ("Kimi K2.5", "kimi-k2.5"),
+            ("Custom model ID", "custom"),
+        ],
+        "deep": [
+            ("Kimi K2.6", "kimi-k2.6"),
+            ("Moonshot v1 128K", "moonshot-v1-128k"),
             ("Custom model ID", "custom"),
         ],
     },
     "qwen": {
         "quick": [
-            ("Qwen Turbo - Fast", "qwen-turbo"),
-            ("Qwen Plus - Balanced", "qwen-plus"),
+            ("Qwen3.7 Plus - Balanced latest", "qwen3.7-plus"),
+            ("Qwen3.6 Flash - Fast multimodal", "qwen3.6-flash"),
+            ("Qwen3-VL Flash - Fast vision", "qwen3-vl-flash"),
             ("Custom model ID", "custom"),
         ],
         "deep": [
-            ("Qwen Max - High capability", "qwen-max"),
-            ("Qwen Max LongContext - Long context", "qwen-max-longcontext"),
-            ("Qwen Plus - Balanced", "qwen-plus"),
+            ("Qwen3.7 Max - Strongest reasoning", "qwen3.7-max"),
+            ("Qwen3.7 Plus - Balanced latest", "qwen3.7-plus"),
+            ("Qwen3.6 Plus - Multimodal long context", "qwen3.6-plus"),
+            ("Qwen3-VL Plus - Vision flagship", "qwen3-vl-plus"),
+            ("Qwen VL OCR Latest - Document OCR", "qwen-vl-ocr-latest"),
+            ("Qwen3 Omni Flash - Omni fast", "qwen3-omni-flash"),
             ("Custom model ID", "custom"),
         ],
     },

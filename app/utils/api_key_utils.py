@@ -85,7 +85,14 @@ def get_env_api_key_for_provider(provider_name: str) -> Optional[str]:
     Returns:
         str: 环境变量中的 API Key，如果不存在或无效则返回 None
     """
-    env_key_name = f"{provider_name.upper()}_API_KEY"
+    try:
+        from tradingagents.llm_clients.provider_keys import env_key_for_provider
+        env_key_name = env_key_for_provider(provider_name)
+    except Exception:
+        env_key_name = ""
+
+    if not env_key_name:
+        env_key_name = f"{provider_name.upper()}_API_KEY"
     env_key = os.getenv(env_key_name)
     
     if env_key and is_valid_api_key(env_key):
@@ -162,4 +169,3 @@ def should_skip_api_key_update(api_key: Optional[str]) -> bool:
         return True
     
     return False
-

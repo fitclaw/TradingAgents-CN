@@ -110,8 +110,11 @@
                 placeholder="请选择大模型提供商"
                 @change="handleProviderChange"
               >
-                <el-option label="DeepSeek（推荐，性价比高）" value="deepseek" />
-                <el-option label="通义千问（推荐，国产稳定）" value="dashscope" />
+                <el-option label="DeepSeek V4（推荐，性价比高）" value="deepseek" />
+                <el-option label="MiniMax Token Plan（中国节点）" value="minimax_tokenplan" />
+                <el-option label="Kimi Code Token Plan（中国节点）" value="kimi_code" />
+                <el-option label="Kimi / Moonshot API（中国节点）" value="moonshot" />
+                <el-option label="阿里云百炼（推荐，国产多模态）" value="dashscope" />
                 <el-option label="OpenAI" value="openai" />
                 <el-option label="Google Gemini" value="google" />
               </el-select>
@@ -397,13 +400,31 @@ const availableModels = computed(() => {
   const provider = wizardData.value.llm.provider
   const models: Record<string, Array<{ label: string; value: string }>> = {
     deepseek: [
-      { label: 'deepseek-chat', value: 'deepseek-chat' },
-      { label: 'deepseek-coder', value: 'deepseek-coder' }
+      { label: 'deepseek-v4-flash', value: 'deepseek-v4-flash' },
+      { label: 'deepseek-v4-pro', value: 'deepseek-v4-pro' }
+    ],
+    minimax_tokenplan: [
+      { label: 'MiniMax-M3', value: 'MiniMax-M3' },
+      { label: 'MiniMax-M2.7', value: 'MiniMax-M2.7' },
+      { label: 'MiniMax-M2.7-highspeed', value: 'MiniMax-M2.7-highspeed' }
+    ],
+    kimi_code: [
+      { label: 'kimi-for-coding', value: 'kimi-for-coding' }
+    ],
+    moonshot: [
+      { label: 'kimi-k2.6', value: 'kimi-k2.6' },
+      { label: 'kimi-k2.5', value: 'kimi-k2.5' },
+      { label: 'moonshot-v1-128k', value: 'moonshot-v1-128k' }
     ],
     dashscope: [
-      { label: 'qwen-turbo', value: 'qwen-turbo' },
-      { label: 'qwen-plus', value: 'qwen-plus' },
-      { label: 'qwen-max', value: 'qwen-max' }
+      { label: 'qwen3.7-plus', value: 'qwen3.7-plus' },
+      { label: 'qwen3.7-max', value: 'qwen3.7-max' },
+      { label: 'qwen3.6-plus', value: 'qwen3.6-plus' },
+      { label: 'qwen3.6-flash', value: 'qwen3.6-flash' },
+      { label: 'qwen3-vl-plus', value: 'qwen3-vl-plus' },
+      { label: 'qwen3-vl-flash', value: 'qwen3-vl-flash' },
+      { label: 'qwen-vl-ocr-latest', value: 'qwen-vl-ocr-latest' },
+      { label: 'qwen3-omni-flash', value: 'qwen3-omni-flash' }
     ],
     openai: [
       { label: 'gpt-3.5-turbo', value: 'gpt-3.5-turbo' },
@@ -451,7 +472,10 @@ const handleProviderChange = () => {
 const getProviderName = (provider: string) => {
   const names: Record<string, string> = {
     deepseek: 'DeepSeek',
-    dashscope: '通义千问',
+    minimax_tokenplan: 'MiniMax Token Plan',
+    kimi_code: 'Kimi Code Token Plan',
+    moonshot: 'Kimi / Moonshot API',
+    dashscope: '阿里云百炼',
     openai: 'OpenAI',
     google: 'Google Gemini'
   }
@@ -460,8 +484,11 @@ const getProviderName = (provider: string) => {
 
 const getProviderHelp = (provider: string) => {
   const helps: Record<string, string> = {
-    deepseek: '注册 DeepSeek 账号，在控制台创建 API Key',
-    dashscope: '注册阿里云账号，开通百炼服务，获取 API 密钥',
+    deepseek: '注册 DeepSeek 账号，在控制台创建 DEEPSEEK_API_KEY',
+    minimax_tokenplan: '登录 MiniMax 中国平台，获取 MINIMAX_TOKEN_PLAN_API_KEY',
+    kimi_code: '登录 Kimi Code，获取 KIMI_CODE_API_KEY',
+    moonshot: '登录 Kimi 中国开放平台，获取 MOONSHOT_API_KEY',
+    dashscope: '注册阿里云账号，开通百炼服务，获取 DASHSCOPE_API_KEY',
     openai: '注册 OpenAI 账号，在 API Keys 页面创建密钥',
     google: '注册 Google Cloud 账号，启用 Gemini API'
   }
@@ -471,7 +498,10 @@ const getProviderHelp = (provider: string) => {
 const getProviderUrl = (provider: string) => {
   const urls: Record<string, string> = {
     deepseek: 'https://platform.deepseek.com/',
-    dashscope: 'https://dashscope.aliyun.com/',
+    minimax_tokenplan: 'https://platform.minimaxi.com/',
+    kimi_code: 'https://www.kimi.com/code',
+    moonshot: 'https://platform.kimi.com/',
+    dashscope: 'https://bailian.console.aliyun.com/',
     openai: 'https://platform.openai.com/',
     google: 'https://ai.google.dev/'
   }
