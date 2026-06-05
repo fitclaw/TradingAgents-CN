@@ -1,17 +1,21 @@
 """
 Data source manager that orchestrates multiple adapters with priority and optional consistency checks
 """
+import os
 from typing import List, Optional, Tuple, Dict
 import logging
 from datetime import datetime, timedelta
 import pandas as pd
 
+from tradingagents.constants import list_data_sources_for_strategy
 from .base import DataSourceAdapter
 from .tushare_adapter import TushareAdapter
 from .akshare_adapter import AKShareAdapter
 from .baostock_adapter import BaoStockAdapter
 
 logger = logging.getLogger(__name__)
+
+SUPPORTED_DATA_SOURCE_STRATEGIES = {"free_first", "quality_first", "premium_enhanced"}
 
 
 class DataSourceManager:
@@ -22,7 +26,8 @@ class DataSourceManager:
     - 可选：一致性检查（若依赖存在）
     """
 
-    def __init__(self):
+    def __init__(self, strategy: Optional[str] = None):
+        self.strategy = self._resolve_strategy(strategy)
         self.adapters: List[DataSourceAdapter] = [
             TushareAdapter(),
             AKShareAdapter(),
@@ -34,6 +39,7 @@ class DataSourceManager:
 
         # 按优先级排序（数字越大优先级越高，所以降序排列）
         self.adapters.sort(key=lambda x: x.priority, reverse=True)
+        logger.info(f"📊 数据源策略: {self.strategy}")
 
         try:
             from .data_consistency_checker import DataConsistencyChecker  # type: ignore
@@ -41,6 +47,82 @@ class DataSourceManager:
         except Exception:
             logger.warning("⚠️ 数据一致性检查器不可用")
             self.consistency_checker = None
+
+    def _resolve_strategy(self, strategy: Optional[str]) -> str:
+        """解析数据源策略，默认使用免费优先。"""
+        raw_strategy = strategy or os.getenv("TA_DATA_SOURCE_STRATEGY", "free_first")
+        normalized = str(raw_strategy or "").strip().lower()
+        if normalized in SUPPORTED_DATA_SOURCE_STRATEGIES:
+            return normalized
+
+        logger.warning(
+            "⚠️ 不支持的数据源策略 %s，回退到 free_first。可选值: %s",
+            raw_strategy,
+            sorted(SUPPORTED_DATA_SOURCE_STRATEGIES),
+        )
+        return "free_first"
+
+    def _get_ordered_available_adapters(
+        self,
+        capability: str,
+        preferred_sources: Optional[List[str]] = None,
+    ) -> List[DataSourceAdapter]:
+        """
+        根据数据源策略、能力和可用性排序 adapter。
+
+        free_first 不会静默启用 premium_optional 数据源；如果需要 Tushare 等付费增强源，
+        调用方应显式使用 premium_enhanced 策略。
+        """
+        available_adapters = self.get_available_adapters()
+        available_by_name = {adapter.name.lower(): adapter for adapter in available_adapters}
+
+        strategy_sources = list_data_sources_for_strategy(
+            market="a_shares",
+            capability=capability,
+            strategy=self.strategy,
+        )
+        strategy_order = [
+            str(info.code.value if hasattr(info.code, "value") else info.code).lower()
+            for info in strategy_sources
+        ]
+
+        preferred_order = [
+            str(source).strip().lower()
+            for source in (preferred_sources or [])
+            if str(source).strip()
+        ]
+        if preferred_order:
+            skipped = [source for source in preferred_order if source not in strategy_order]
+            if skipped:
+                logger.info(
+                    "📊 数据源策略 %s 跳过不在 %s/%s 策略链中的优先源: %s",
+                    self.strategy,
+                    "a_shares",
+                    capability,
+                    skipped,
+                )
+            ordered_names = [
+                source for source in preferred_order
+                if source in strategy_order and source in available_by_name
+            ]
+            ordered_names.extend(
+                source for source in strategy_order
+                if source not in ordered_names and source in available_by_name
+            )
+        else:
+            ordered_names = [
+                source for source in strategy_order
+                if source in available_by_name
+            ]
+
+        ordered_adapters = [available_by_name[name] for name in ordered_names]
+        logger.info(
+            "📊 数据源排序: strategy=%s, capability=%s, adapters=%s",
+            self.strategy,
+            capability,
+            [adapter.name for adapter in ordered_adapters],
+        )
+        return ordered_adapters
 
     def _load_priority_from_database(self):
         """从数据库加载数据源优先级配置（从 datasource_groupings 集合读取 A股市场的优先级）"""
@@ -111,20 +193,7 @@ class DataSourceManager:
         Returns:
             (DataFrame, source_name) 或 (None, None)
         """
-        available_adapters = self.get_available_adapters()
-
-        # 如果指定了优先数据源，重新排序
-        if preferred_sources:
-            logger.info(f"Using preferred data sources: {preferred_sources}")
-            # 创建优先级映射
-            priority_map = {name: idx for idx, name in enumerate(preferred_sources)}
-            # 将指定的数据源排在前面，其他的保持原顺序
-            preferred = [a for a in available_adapters if a.name in priority_map]
-            others = [a for a in available_adapters if a.name not in priority_map]
-            # 按照 preferred_sources 的顺序排序
-            preferred.sort(key=lambda a: priority_map.get(a.name, 999))
-            available_adapters = preferred + others
-            logger.info(f"Reordered adapters: {[a.name for a in available_adapters]}")
+        available_adapters = self._get_ordered_available_adapters("stock_list", preferred_sources)
 
         for adapter in available_adapters:
             try:
@@ -148,15 +217,7 @@ class DataSourceManager:
         Returns:
             (DataFrame, source_name) 或 (None, None)
         """
-        available_adapters = self.get_available_adapters()
-
-        # 如果指定了优先数据源，重新排序
-        if preferred_sources:
-            priority_map = {name: idx for idx, name in enumerate(preferred_sources)}
-            preferred = [a for a in available_adapters if a.name in priority_map]
-            others = [a for a in available_adapters if a.name not in priority_map]
-            preferred.sort(key=lambda a: priority_map.get(a.name, 999))
-            available_adapters = preferred + others
+        available_adapters = self._get_ordered_available_adapters("fundamentals", preferred_sources)
 
         for adapter in available_adapters:
             try:
@@ -179,15 +240,7 @@ class DataSourceManager:
         Returns:
             交易日期字符串（YYYYMMDD格式）或 None
         """
-        available_adapters = self.get_available_adapters()
-
-        # 如果指定了优先数据源，重新排序
-        if preferred_sources:
-            priority_map = {name: idx for idx, name in enumerate(preferred_sources)}
-            preferred = [a for a in available_adapters if a.name in priority_map]
-            others = [a for a in available_adapters if a.name not in priority_map]
-            preferred.sort(key=lambda a: priority_map.get(a.name, 999))
-            available_adapters = preferred + others
+        available_adapters = self._get_ordered_available_adapters("kline", preferred_sources)
 
         for adapter in available_adapters:
             try:
@@ -205,7 +258,7 @@ class DataSourceManager:
         Returns: (quotes_dict, source_name)
         quotes_dict 形如 { '000001': {'close': 10.0, 'pct_chg': 1.2, 'amount': 1.2e8}, ... }
         """
-        available_adapters = self.get_available_adapters()
+        available_adapters = self._get_ordered_available_adapters("quotes")
         for adapter in available_adapters:
             try:
                 logger.info(f"Trying to fetch realtime quotes from {adapter.name}")
@@ -227,7 +280,7 @@ class DataSourceManager:
         Returns:
             Tuple[DataFrame, source_name, consistency_report]
         """
-        available_adapters = self.get_available_adapters()
+        available_adapters = self._get_ordered_available_adapters("fundamentals")
         if len(available_adapters) < 2:
             df, source = self.get_daily_basic_with_fallback(trade_date)
             return df, source, None
@@ -281,7 +334,7 @@ class DataSourceManager:
 
     def get_kline_with_fallback(self, code: str, period: str = "day", limit: int = 120, adj: Optional[str] = None) -> Tuple[Optional[List[Dict]], Optional[str]]:
         """按优先级尝试获取K线，返回(items, source)"""
-        available_adapters = self.get_available_adapters()
+        available_adapters = self._get_ordered_available_adapters("kline")
         for adapter in available_adapters:
             try:
                 logger.info(f"Trying to fetch kline from {adapter.name}")
@@ -295,7 +348,7 @@ class DataSourceManager:
 
     def get_news_with_fallback(self, code: str, days: int = 2, limit: int = 50, include_announcements: bool = True) -> Tuple[Optional[List[Dict]], Optional[str]]:
         """按优先级尝试获取新闻与公告，返回(items, source)"""
-        available_adapters = self.get_available_adapters()
+        available_adapters = self._get_ordered_available_adapters("news")
         for adapter in available_adapters:
             try:
                 logger.info(f"Trying to fetch news from {adapter.name}")

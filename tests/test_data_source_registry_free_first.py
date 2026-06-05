@@ -38,6 +38,18 @@ def test_sec_edgar_is_default_free_us_fundamentals_source():
     assert DataSourceCode.SEC_EDGAR in _codes(us_fundamentals)
 
 
+def test_a_share_stock_list_strategy_uses_free_sources_before_premium_sources():
+    free_stock_list = list_data_sources_for_strategy("a_shares", "stock_list", strategy="free_first")
+    free_stock_list_codes = _codes(free_stock_list)
+    premium_stock_list = list_data_sources_for_strategy("a_shares", "stock_list", strategy="premium_enhanced")
+    premium_stock_list_codes = _codes(premium_stock_list)
+
+    assert DataSourceCode.AKSHARE in free_stock_list_codes
+    assert DataSourceCode.BAOSTOCK in free_stock_list_codes
+    assert DataSourceCode.TUSHARE not in free_stock_list_codes
+    assert DataSourceCode.TUSHARE in premium_stock_list_codes
+
+
 def test_grok_x_is_low_cost_news_social_macro_source_only():
     grok_x = get_data_source_info(DataSourceCode.GROK_X)
 

@@ -69,7 +69,7 @@ class DataSourceInfo:
     is_free: bool  # 是否免费
     access_tier: str = "free_no_key"  # local_cache/free_no_key/free_key/low_cost/premium_optional
     default_role: str = "fallback"  # primary/default/fallback/optional_enhancement/premium_enhancement
-    capabilities: List[str] = None  # 标准能力：quotes/kline/fundamentals/news/social/macro/filings/cache
+    capabilities: List[str] = None  # 标准能力：stock_list/quotes/kline/fundamentals/news/social/macro/filings/cache
     free_tier_note: Optional[str] = None  # 免费额度或免费能力说明
     rate_limit_note: Optional[str] = None  # 频率限制说明
     license_note: Optional[str] = None  # 授权与使用边界说明
@@ -99,7 +99,7 @@ DATA_SOURCE_REGISTRY: Dict[str, DataSourceInfo] = {
         is_free=True,
         access_tier="local_cache",
         default_role="primary",
-        capabilities=["cache", "quotes", "kline", "fundamentals", "news", "social", "macro"],
+        capabilities=["cache", "stock_list", "quotes", "kline", "fundamentals", "news", "social", "macro"],
         quality_note="本地缓存优先用于复现、降级和减少外部API依赖，质量取决于同步任务和来源链路。",
         features=["本地缓存", "最快速度", "离线可用"],
     ),
@@ -116,7 +116,7 @@ DATA_SOURCE_REGISTRY: Dict[str, DataSourceInfo] = {
         is_free=False,  # 免费版有限制，专业版需付费
         access_tier="premium_optional",
         default_role="premium_enhancement",
-        capabilities=["quotes", "kline", "fundamentals", "news"],
+        capabilities=["stock_list", "quotes", "kline", "fundamentals", "news"],
         free_tier_note="存在 token 和积分门槛；部分基础接口可用，高频、实时或高级数据通常需要更高权限。",
         rate_limit_note="按接口和账号权限限制，需在配置中显式限流。",
         quality_note="A股数据质量较高，但不应在免费优先模式中静默作为默认依赖。",
@@ -137,7 +137,7 @@ DATA_SOURCE_REGISTRY: Dict[str, DataSourceInfo] = {
         is_free=True,
         access_tier="free_no_key",
         default_role="default",
-        capabilities=["quotes", "kline", "fundamentals", "news"],
+        capabilities=["stock_list", "quotes", "kline", "fundamentals", "news"],
         free_tier_note="开源免费，无需API key。",
         rate_limit_note="可能受上游站点频率和反爬策略影响，批量同步需要限流和缓存。",
         quality_note="覆盖广，适合免费优先默认源；字段口径需按接口标准化。",
@@ -158,7 +158,7 @@ DATA_SOURCE_REGISTRY: Dict[str, DataSourceInfo] = {
         is_free=True,
         access_tier="free_no_key",
         default_role="fallback",
-        capabilities=["kline", "fundamentals"],
+        capabilities=["stock_list", "kline", "fundamentals"],
         free_tier_note="免费、无需API key。",
         quality_note="适合A股历史行情和部分财务数据兜底，不适合作为实时行情源。",
         official_website="http://baostock.com",
@@ -379,7 +379,7 @@ DATA_SOURCE_REGISTRY: Dict[str, DataSourceInfo] = {
         is_free=True,
         access_tier="local_cache",
         default_role="primary",
-        capabilities=["cache", "quotes", "kline", "fundamentals", "news", "social", "macro"],
+        capabilities=["cache", "stock_list", "quotes", "kline", "fundamentals", "news", "social", "macro"],
         quality_note="适合导入第三方快照和离线回归，质量取决于文件来源和字段映射。",
         features=["离线可用", "自定义数据", "完全免费"],
     ),
@@ -396,7 +396,7 @@ DATA_SOURCE_REGISTRY: Dict[str, DataSourceInfo] = {
         is_free=True,
         access_tier="free_no_key",
         default_role="fallback",
-        capabilities=["quotes", "kline", "fundamentals", "news", "social", "macro"],
+        capabilities=["stock_list", "quotes", "kline", "fundamentals", "news", "social", "macro"],
         quality_note="自定义扩展入口，默认不代表可信源；需要接入方声明来源和授权。",
         features=["自定义接口", "灵活配置"],
     ),
@@ -500,7 +500,7 @@ def list_data_sources_by_capability(capability: str) -> List[DataSourceInfo]:
     按标准能力列出数据源
 
     Args:
-        capability: quotes/kline/fundamentals/news/social/macro/filings/cache
+        capability: stock_list/quotes/kline/fundamentals/news/social/macro/filings/cache
 
     Returns:
         支持该能力的数据源列表
@@ -517,7 +517,7 @@ def list_data_sources_by_market_and_capability(market: str, capability: str) -> 
 
     Args:
         market: 市场类型（a_shares, us_stocks, hk_stocks, macro 等）
-        capability: quotes/kline/fundamentals/news/social/macro/filings/cache
+        capability: stock_list/quotes/kline/fundamentals/news/social/macro/filings/cache
 
     Returns:
         同时支持指定市场和能力的数据源列表
