@@ -4,6 +4,7 @@ from typing import Any, Optional
 from langchain_openai import ChatOpenAI
 
 from .base_client import BaseLLMClient, normalize_content
+from .request_options import normalize_request_options
 from .validators import validate_model
 
 
@@ -31,6 +32,9 @@ _PROVIDER_CONFIG = {
     "qianfan": ("https://qianfan.baidubce.com/v2", "QIANFAN_API_KEY"),
     "openrouter": ("https://openrouter.ai/api/v1", "OPENROUTER_API_KEY"),
     "aihubmix": ("https://aihubmix.com/v1", "AIHUBMIX_API_KEY"),
+    "minimax_tokenplan": ("https://api.minimaxi.com/v1", "MINIMAX_TOKEN_PLAN_API_KEY"),
+    "kimi_code": ("https://api.kimi.com/coding/v1", "KIMI_CODE_API_KEY"),
+    "moonshot": ("https://api.moonshot.cn/v1", "MOONSHOT_API_KEY"),
     "ollama": ("http://localhost:11434/v1", None),
     "custom_openai": (None, "CUSTOM_OPENAI_API_KEY"),
 }
@@ -71,6 +75,8 @@ class OpenAIClient(BaseLLMClient):
         for key in _PASSTHROUGH_KWARGS:
             if key in self.kwargs:
                 llm_kwargs[key] = self.kwargs[key]
+
+        llm_kwargs = normalize_request_options(self.provider, self.model, llm_kwargs)
 
         return NormalizedChatOpenAI(**llm_kwargs)
 

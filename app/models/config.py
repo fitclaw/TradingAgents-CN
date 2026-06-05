@@ -29,6 +29,9 @@ class ModelProvider(str, Enum):
     OPENROUTER = "openrouter"
     CUSTOM_OPENAI = "custom_openai"
     QIANFAN = "qianfan"
+    MINIMAX_TOKENPLAN = "minimax_tokenplan"
+    KIMI_CODE = "kimi_code"
+    MOONSHOT = "moonshot"
     LOCAL = "local"
 
     # 🆕 聚合渠道

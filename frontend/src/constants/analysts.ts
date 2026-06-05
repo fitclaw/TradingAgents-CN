@@ -82,6 +82,14 @@ export const convertAnalystIdsToNames = (ids: string[]): string[] => {
 // 模型名称到供应商的映射
 export const MODEL_TO_PROVIDER_MAP: Record<string, string> = {
   // 阿里百炼 (DashScope)
+  'qwen3.7-plus': 'dashscope',
+  'qwen3.7-max': 'dashscope',
+  'qwen3.6-plus': 'dashscope',
+  'qwen3.6-flash': 'dashscope',
+  'qwen3-vl-plus': 'dashscope',
+  'qwen3-vl-flash': 'dashscope',
+  'qwen-vl-ocr-latest': 'dashscope',
+  'qwen3-omni-flash': 'dashscope',
   'qwen-turbo': 'dashscope',
   'qwen-plus': 'dashscope',
   'qwen-max': 'dashscope',
@@ -100,9 +108,16 @@ export const MODEL_TO_PROVIDER_MAP: Record<string, string> = {
   'gemini-2.0-flash': 'google',
   'gemini-2.0-flash-thinking-exp': 'google',
 
-  // DeepSeek
-  'deepseek-chat': 'deepseek',
-  'deepseek-coder': 'deepseek',
+  // 中国节点模型
+  'deepseek-v4-flash': 'deepseek',
+  'deepseek-v4-pro': 'deepseek',
+  'MiniMax-M3': 'minimax_tokenplan',
+  'MiniMax-M2.7': 'minimax_tokenplan',
+  'MiniMax-M2.7-highspeed': 'minimax_tokenplan',
+  'kimi-for-coding': 'kimi_code',
+  'kimi-k2.6': 'moonshot',
+  'kimi-k2.5': 'moonshot',
+  'moonshot-v1-128k': 'moonshot',
 
   // 智谱AI
   'glm-4': 'zhipu',

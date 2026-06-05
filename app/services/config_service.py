@@ -20,6 +20,7 @@ from app.models.config import (
     MarketCategory, DataSourceGrouping, ModelCatalog, ModelInfo
 )
 from tradingagents.llm_clients.provider_keys import canonical_aliases, normalize_provider_key
+from tradingagents.llm_clients.request_options import normalize_request_options
 
 logger = logging.getLogger(__name__)
 
@@ -66,6 +67,47 @@ class ConfigService:
             return False
 
         return normalize_provider_key(left_provider) == normalize_provider_key(right_provider)
+
+    @staticmethod
+    def _extract_chat_response_text(result: Dict[str, Any]) -> str:
+        """Extract usable text from OpenAI-compatible chat responses.
+
+        Some reasoning models can return intermediate text in provider-specific
+        fields such as reasoning_content before final content is populated.
+        For connection tests, either field proves the API route is alive.
+        """
+        choices = result.get("choices") or []
+        if not choices:
+            return ""
+
+        first_choice = choices[0] or {}
+        message = first_choice.get("message") or first_choice.get("delta") or {}
+        if not isinstance(message, dict):
+            return ""
+
+        values: list[str] = []
+        for key in ("content", "reasoning_content"):
+            value = message.get(key)
+            if isinstance(value, str):
+                values.append(value)
+            elif isinstance(value, list):
+                for part in value:
+                    if isinstance(part, str):
+                        values.append(part)
+                    elif isinstance(part, dict):
+                        text = part.get("text") or part.get("content")
+                        if isinstance(text, str):
+                            values.append(text)
+
+        return "\n".join(item for item in values if item).strip()
+
+    @staticmethod
+    def _normalize_openai_base_url(base_url: str) -> str:
+        """Normalize an OpenAI-compatible base URL without duplicating /v1."""
+        normalized = str(base_url or "").rstrip("/")
+        if normalized and not re.search(r"/v\d+$", normalized):
+            normalized = f"{normalized}/v1"
+        return normalized
 
     # ==================== 市场分类管理 ====================
 
@@ -932,6 +974,7 @@ class ConfigService:
 
             # 获取 provider 字符串值（兼容枚举和字符串）
             provider_str = self._provider_to_string(llm_config.provider)
+            provider_key = normalize_provider_key(provider_str)
 
             logger.info(f"🧪 测试大模型配置: {provider_str} - {llm_config.model_name}")
             logger.info(f"📍 API基础URL (模型配置): {llm_config.api_base}")
@@ -940,6 +983,10 @@ class ConfigService:
             db = await self._get_db()
             providers_collection = db.llm_providers
             provider_data = await providers_collection.find_one({"name": provider_str})
+            if not provider_data and provider_key != provider_str:
+                provider_data = await providers_collection.find_one({"name": provider_key})
+            if not provider_data and provider_key == "qwen":
+                provider_data = await providers_collection.find_one({"name": "dashscope"})
 
             # 1. 确定 API 基础 URL
             api_base = llm_config.api_base
@@ -980,19 +1027,19 @@ class ConfigService:
                 }
 
             # 3. 根据厂家类型选择测试方法
-            if provider_str == "google":
+            if provider_key == "google":
                 # Google AI 使用专门的测试方法
                 logger.info(f"🔍 使用 Google AI 专用测试方法")
                 result = self._test_google_api(api_key, f"{provider_str} {llm_config.model_name}", api_base, llm_config.model_name)
                 result["response_time"] = time.time() - start_time
                 return result
-            elif provider_str == "deepseek":
+            elif provider_key == "deepseek":
                 # DeepSeek 使用专门的测试方法
                 logger.info(f"🔍 使用 DeepSeek 专用测试方法")
                 result = self._test_deepseek_api(api_key, f"{provider_str} {llm_config.model_name}", llm_config.model_name)
                 result["response_time"] = time.time() - start_time
                 return result
-            elif provider_str == "dashscope":
+            elif provider_key == "qwen":
                 # DashScope 使用专门的测试方法
                 logger.info(f"🔍 使用 DashScope 专用测试方法")
                 result = self._test_dashscope_api(api_key, f"{provider_str} {llm_config.model_name}", llm_config.model_name)
@@ -1003,17 +1050,10 @@ class ConfigService:
                 logger.info(f"🔍 使用 OpenAI 兼容测试方法")
 
                 # 构建测试请求
-                api_base_normalized = api_base.rstrip("/")
-
-                # 🔧 智能版本号处理：只有在没有版本号的情况下才添加 /v1
-                # 避免对已有版本号的URL（如智谱AI的 /v4）重复添加 /v1
-                import re
-                if not re.search(r'/v\d+$', api_base_normalized):
-                    # URL末尾没有版本号，添加 /v1（OpenAI标准）
-                    api_base_normalized = api_base_normalized + "/v1"
+                api_base_normalized = self._normalize_openai_base_url(api_base)
+                if api_base_normalized != api_base.rstrip("/"):
                     logger.info(f"   添加 /v1 版本号: {api_base_normalized}")
                 else:
-                    # URL已包含版本号（如 /v4），不添加
                     logger.info(f"   检测到已有版本号，保持原样: {api_base_normalized}")
 
                 url = f"{api_base_normalized}/chat/completions"
@@ -1023,14 +1063,14 @@ class ConfigService:
                     "Authorization": f"Bearer {api_key}"
                 }
 
-                data = {
+                data = normalize_request_options(provider_key, llm_config.model_name, {
                     "model": llm_config.model_name,
                     "messages": [
                         {"role": "user", "content": "Hello, please respond with 'OK' if you can read this."}
                     ],
                     "max_tokens": 200,  # 增加到200，给推理模型（如o1/gpt-5）足够空间
                     "temperature": 0.1
-                }
+                })
 
                 logger.info(f"🌐 发送测试请求到: {url}")
                 logger.info(f"📦 使用模型: {llm_config.model_name}")
@@ -1048,37 +1088,27 @@ class ConfigService:
                         result = response.json()
                         logger.info(f"📦 响应JSON: {result}")
 
-                        if "choices" in result and len(result["choices"]) > 0:
-                            content = result["choices"][0]["message"]["content"]
+                        content = self._extract_chat_response_text(result)
+                        if content:
                             logger.info(f"📝 响应内容: {content}")
 
-                            if content and len(content.strip()) > 0:
-                                logger.info(f"✅ 测试成功: {content[:50]}")
-                                return {
-                                    "success": True,
-                                    "message": f"成功连接到 {provider_str} {llm_config.model_name}",
-                                    "response_time": response_time,
-                                    "details": {
-                                        "provider": provider_str,
-                                        "model": llm_config.model_name,
-                                        "api_base": api_base,
-                                        "response_preview": content[:100]
-                                    }
+                            logger.info(f"✅ 测试成功: {content[:50]}")
+                            return {
+                                "success": True,
+                                "message": f"成功连接到 {provider_str} {llm_config.model_name}",
+                                "response_time": response_time,
+                                "details": {
+                                    "provider": provider_str,
+                                    "model": llm_config.model_name,
+                                    "api_base": api_base,
+                                    "response_preview": content[:100]
                                 }
-                            else:
-                                logger.warning(f"⚠️ API响应内容为空")
-                                return {
-                                    "success": False,
-                                    "message": "API响应内容为空",
-                                    "response_time": response_time,
-                                    "details": None
-                                }
+                            }
                         else:
-                            logger.warning(f"⚠️ API响应格式异常，缺少 choices 字段")
-                            logger.warning(f"   响应内容: {result}")
+                            logger.warning(f"⚠️ API响应内容为空")
                             return {
                                 "success": False,
-                                "message": "API响应格式异常",
+                                "message": "API响应内容为空",
                                 "response_time": response_time,
                                 "details": None
                             }
@@ -2353,6 +2383,10 @@ class ConfigService:
             catalog_collection = db.model_catalog
 
             doc = await catalog_collection.find_one({"provider": provider})
+            if not doc and normalize_provider_key(provider) == "qwen":
+                doc = await catalog_collection.find_one({"provider": "dashscope"})
+            if not doc and provider == "dashscope":
+                doc = await catalog_collection.find_one({"provider": "qwen"})
             if doc:
                 return ModelCatalog(**doc)
             return None
@@ -2421,73 +2455,82 @@ class ConfigService:
         """获取默认模型目录数据"""
         return [
             {
-                "provider": "qwen",
-                "provider_name": "通义千问",
+                "provider": "dashscope",
+                "provider_name": "阿里云百炼",
                 "models": [
                     {
-                        "name": "qwen-turbo",
-                        "display_name": "Qwen Turbo - 快速经济 (1M上下文)",
-                        "input_price_per_1k": 0.0003,
-                        "output_price_per_1k": 0.0003,
-                        "context_length": 1000000,
-                        "currency": "CNY",
-                        "description": "Qwen2.5-Turbo，支持100万tokens超长上下文"
-                    },
-                    {
-                        "name": "qwen-plus",
-                        "display_name": "Qwen Plus - 平衡推荐",
-                        "input_price_per_1k": 0.0008,
-                        "output_price_per_1k": 0.002,
-                        "context_length": 32768,
-                        "currency": "CNY"
-                    },
-                    {
-                        "name": "qwen-plus-latest",
-                        "display_name": "Qwen Plus Latest - 最新平衡",
-                        "input_price_per_1k": 0.0008,
-                        "output_price_per_1k": 0.002,
-                        "context_length": 32768,
-                        "currency": "CNY"
-                    },
-                    {
-                        "name": "qwen-max",
-                        "display_name": "Qwen Max - 最强性能",
-                        "input_price_per_1k": 0.02,
-                        "output_price_per_1k": 0.06,
-                        "context_length": 8192,
-                        "currency": "CNY"
-                    },
-                    {
-                        "name": "qwen-max-latest",
-                        "display_name": "Qwen Max Latest - 最新旗舰",
-                        "input_price_per_1k": 0.02,
-                        "output_price_per_1k": 0.06,
-                        "context_length": 8192,
-                        "currency": "CNY"
-                    },
-                    {
-                        "name": "qwen-long",
-                        "display_name": "Qwen Long - 长文本",
-                        "input_price_per_1k": 0.0005,
-                        "output_price_per_1k": 0.002,
-                        "context_length": 1000000,
-                        "currency": "CNY"
-                    },
-                    {
-                        "name": "qwen-vl-plus",
-                        "display_name": "Qwen VL Plus - 视觉理解",
-                        "input_price_per_1k": 0.008,
+                        "name": "qwen3.7-plus",
+                        "display_name": "Qwen3.7 Plus - 推荐平衡模型",
+                        "input_price_per_1k": 0.002,
                         "output_price_per_1k": 0.008,
-                        "context_length": 8192,
-                        "currency": "CNY"
+                        "context_length": 1000000,
+                        "max_tokens": 65536,
+                        "currency": "CNY",
+                        "capabilities": ["chat", "function_calling", "reasoning", "long_context", "structured_output", "builtin_tools"],
+                        "description": "阿里云百炼推荐平衡模型，支持 1M 上下文、思考模式、函数调用、内置工具与结构化输出"
                     },
                     {
-                        "name": "qwen-vl-max",
-                        "display_name": "Qwen VL Max - 视觉旗舰",
-                        "input_price_per_1k": 0.02,
-                        "output_price_per_1k": 0.02,
-                        "context_length": 8192,
-                        "currency": "CNY"
+                        "name": "qwen3.7-max",
+                        "display_name": "Qwen3.7 Max - 最强推理",
+                        "input_price_per_1k": 0.012,
+                        "output_price_per_1k": 0.036,
+                        "context_length": 1000000,
+                        "max_tokens": 65536,
+                        "currency": "CNY",
+                        "capabilities": ["chat", "function_calling", "reasoning", "long_context", "structured_output", "builtin_tools"],
+                        "description": "Qwen Max 系列新一代旗舰模型，适合复杂推理、编程与长周期任务"
+                    },
+                    {
+                        "name": "qwen3.6-plus",
+                        "display_name": "Qwen3.6 Plus - 多模态平衡",
+                        "input_price_per_1k": 0.002,
+                        "output_price_per_1k": 0.012,
+                        "context_length": 1000000,
+                        "max_tokens": 65536,
+                        "currency": "CNY",
+                        "capabilities": ["chat", "vision", "video", "function_calling", "reasoning", "long_context", "structured_output", "builtin_tools"],
+                        "description": "支持文本、图像、视频输入，适合多模态金融图表识别和通用分析"
+                    },
+                    {
+                        "name": "qwen3.6-flash",
+                        "display_name": "Qwen3.6 Flash - 多模态快速",
+                        "context_length": 1000000,
+                        "max_tokens": 65536,
+                        "currency": "CNY",
+                        "capabilities": ["chat", "vision", "video", "function_calling", "reasoning", "long_context", "structured_output", "builtin_tools", "cost_effective"],
+                        "description": "接近旗舰效果的低成本快速模型，支持图像、视频理解与工具调用"
+                    },
+                    {
+                        "name": "qwen3-vl-plus",
+                        "display_name": "Qwen3-VL Plus - 视觉理解旗舰",
+                        "context_length": 262144,
+                        "max_tokens": 32768,
+                        "currency": "CNY",
+                        "capabilities": ["vision", "video", "ocr", "function_calling", "reasoning", "structured_output"],
+                        "description": "Qwen3-VL 稳定版视觉理解模型，适合图片、视频、图表和文档识别"
+                    },
+                    {
+                        "name": "qwen3-vl-flash",
+                        "display_name": "Qwen3-VL Flash - 视觉理解快速",
+                        "context_length": 258048,
+                        "max_tokens": 32768,
+                        "currency": "CNY",
+                        "capabilities": ["vision", "video", "ocr", "function_calling", "reasoning", "structured_output", "cost_effective"],
+                        "description": "Qwen3-VL 快速视觉模型，适合低成本图像识别和视频理解"
+                    },
+                    {
+                        "name": "qwen-vl-ocr-latest",
+                        "display_name": "Qwen VL OCR Latest - 文档识别",
+                        "currency": "CNY",
+                        "capabilities": ["vision", "ocr", "document_extraction"],
+                        "description": "面向文档、表格、试卷和手写内容的 OCR/文档提取模型"
+                    },
+                    {
+                        "name": "qwen3-omni-flash",
+                        "display_name": "Qwen3 Omni Flash - 全模态快速",
+                        "currency": "CNY",
+                        "capabilities": ["vision", "audio", "video", "omni", "fast_response"],
+                        "description": "千问全模态快速模型，覆盖图像、音频和视频理解场景"
                     }
                 ]
             },
@@ -2580,19 +2623,70 @@ class ConfigService:
                 "provider_name": "DeepSeek",
                 "models": [
                     {
-                        "name": "deepseek-chat",
-                        "display_name": "DeepSeek Chat - 通用对话",
-                        "input_price_per_1k": 0.0001,
-                        "output_price_per_1k": 0.0002,
-                        "context_length": 32768,
+                        "name": "deepseek-v4-flash",
+                        "display_name": "DeepSeek V4 Flash - 快速分析",
+                        "currency": "CNY",
+                        "description": "DeepSeek V4 Flash，适合快速分析和成本敏感任务"
+                    },
+                    {
+                        "name": "deepseek-v4-pro",
+                        "display_name": "DeepSeek V4 Pro - 深度推理",
+                        "currency": "CNY",
+                        "description": "DeepSeek V4 Pro，适合深度分析和复杂推理任务"
+                    }
+                ]
+            },
+            {
+                "provider": "minimax_tokenplan",
+                "provider_name": "MiniMax Token Plan",
+                "models": [
+                    {
+                        "name": "MiniMax-M3",
+                        "display_name": "MiniMax M3 - Token Plan",
+                        "currency": "CNY",
+                        "description": "MiniMax Token Plan 中国节点模型，适合通用分析任务"
+                    },
+                    {
+                        "name": "MiniMax-M2.7",
+                        "display_name": "MiniMax M2.7 - Token Plan",
                         "currency": "CNY"
                     },
                     {
-                        "name": "deepseek-coder",
-                        "display_name": "DeepSeek Coder - 代码专用",
-                        "input_price_per_1k": 0.0001,
-                        "output_price_per_1k": 0.0002,
-                        "context_length": 16384,
+                        "name": "MiniMax-M2.7-highspeed",
+                        "display_name": "MiniMax M2.7 Highspeed - Token Plan",
+                        "currency": "CNY"
+                    }
+                ]
+            },
+            {
+                "provider": "kimi_code",
+                "provider_name": "Kimi Code Token Plan",
+                "models": [
+                    {
+                        "name": "kimi-for-coding",
+                        "display_name": "Kimi for Coding - Token Plan",
+                        "currency": "CNY",
+                        "description": "Kimi Code Token Plan 中国节点固定模型"
+                    }
+                ]
+            },
+            {
+                "provider": "moonshot",
+                "provider_name": "Kimi / Moonshot API",
+                "models": [
+                    {
+                        "name": "kimi-k2.6",
+                        "display_name": "Kimi K2.6",
+                        "currency": "CNY"
+                    },
+                    {
+                        "name": "kimi-k2.5",
+                        "display_name": "Kimi K2.5",
+                        "currency": "CNY"
+                    },
+                    {
+                        "name": "moonshot-v1-128k",
+                        "display_name": "Moonshot v1 128K",
                         "currency": "CNY"
                     }
                 ]
@@ -3215,14 +3309,14 @@ class ConfigService:
                     "supported_features": ["chat", "completion", "function_calling", "streaming"]
                 },
                 {
-                    "name": "qwen",
+                    "name": "dashscope",
                     "display_name": "阿里云百炼",
-                    "description": "阿里云百炼大模型服务平台，提供通义千问等模型",
+                    "description": "阿里云百炼大模型服务平台，提供 Qwen3.7、Qwen3.6、Qwen3-VL、OCR、Omni 等文本与多模态模型",
                     "website": "https://bailian.console.aliyun.com",
-                    "api_doc_url": "https://help.aliyun.com/zh/dashscope/",
+                    "api_doc_url": "https://help.aliyun.com/zh/model-studio/",
                     "default_base_url": "https://dashscope.aliyuncs.com/compatible-mode/v1",
                     "aliases": canonical_aliases("qwen"),
-                    "supported_features": ["chat", "completion", "embedding", "function_calling", "streaming"]
+                    "supported_features": ["chat", "completion", "embedding", "function_calling", "streaming", "vision", "image", "video", "ocr"]
                 },
                 {
                     "name": "deepseek",
@@ -3373,34 +3467,43 @@ class ConfigService:
         import asyncio
 
         try:
+            provider_key = normalize_provider_key(provider_name)
             # 聚合渠道（使用 OpenAI 兼容 API）
             if provider_name in ["302ai", "aihubmix", "oneapi", "newapi", "custom_aggregator"]:
                 # 获取厂家的 base_url
                 db = await self._get_db()
                 providers_collection = db.llm_providers
                 provider_data = await providers_collection.find_one({"name": provider_name})
+                if not provider_data and provider_key != provider_name:
+                    provider_data = await providers_collection.find_one({"name": provider_key})
+                if not provider_data and provider_key == "qwen":
+                    provider_data = await providers_collection.find_one({"name": "dashscope"})
                 base_url = provider_data.get("default_base_url") if provider_data else None
                 return await asyncio.get_event_loop().run_in_executor(
                     None, self._test_openai_compatible_api, api_key, display_name, base_url, provider_name
                 )
-            elif provider_name == "google":
+            elif provider_key == "google":
                 # 获取厂家的 base_url
                 db = await self._get_db()
                 providers_collection = db.llm_providers
                 provider_data = await providers_collection.find_one({"name": provider_name})
+                if not provider_data and provider_key != provider_name:
+                    provider_data = await providers_collection.find_one({"name": provider_key})
+                if not provider_data and provider_key == "qwen":
+                    provider_data = await providers_collection.find_one({"name": "dashscope"})
                 base_url = provider_data.get("default_base_url") if provider_data else None
                 return await asyncio.get_event_loop().run_in_executor(None, self._test_google_api, api_key, display_name, base_url)
-            elif provider_name == "deepseek":
+            elif provider_key == "deepseek":
                 return await asyncio.get_event_loop().run_in_executor(None, self._test_deepseek_api, api_key, display_name)
-            elif provider_name == "dashscope":
+            elif provider_key == "qwen":
                 return await asyncio.get_event_loop().run_in_executor(None, self._test_dashscope_api, api_key, display_name)
-            elif provider_name == "openrouter":
+            elif provider_key == "openrouter":
                 return await asyncio.get_event_loop().run_in_executor(None, self._test_openrouter_api, api_key, display_name)
-            elif provider_name == "openai":
+            elif provider_key == "openai":
                 return await asyncio.get_event_loop().run_in_executor(None, self._test_openai_api, api_key, display_name)
-            elif provider_name == "anthropic":
+            elif provider_key == "anthropic":
                 return await asyncio.get_event_loop().run_in_executor(None, self._test_anthropic_api, api_key, display_name)
-            elif provider_name == "qianfan":
+            elif provider_key == "qianfan":
                 return await asyncio.get_event_loop().run_in_executor(None, self._test_qianfan_api, api_key, display_name)
             else:
                 # 🔧 对于未知的自定义厂家，使用 OpenAI 兼容 API 测试
@@ -3612,7 +3715,7 @@ class ConfigService:
 
             # 如果没有指定模型，使用默认模型
             if not model_name:
-                model_name = "deepseek-chat"
+                model_name = "deepseek-v4-flash"
                 logger.info(f"⚠️ 未指定模型，使用默认模型: {model_name}")
 
             logger.info(f"🔍 [DeepSeek 测试] 使用模型: {model_name}")
@@ -3627,33 +3730,43 @@ class ConfigService:
             data = {
                 "model": model_name,
                 "messages": [
-                    {"role": "user", "content": "你好，请简单介绍一下你自己。"}
+                    {"role": "user", "content": "只回复 OK，不要解释。"}
                 ],
-                "max_tokens": 50,
-                "temperature": 0.1
+                "max_tokens": 200,
+                "temperature": 0.1,
+                "thinking": {"type": "disabled"}
             }
 
             response = requests.post(url, json=data, headers=headers, timeout=10)
 
             if response.status_code == 200:
                 result = response.json()
-                if "choices" in result and len(result["choices"]) > 0:
-                    content = result["choices"][0]["message"]["content"]
-                    if content and len(content.strip()) > 0:
-                        return {
-                            "success": True,
-                            "message": f"{display_name} API连接测试成功"
-                        }
-                    else:
-                        return {
-                            "success": False,
-                            "message": f"{display_name} API响应为空"
-                        }
+                content = self._extract_chat_response_text(result)
+                if content:
+                    return {
+                        "success": True,
+                        "message": f"{display_name} API连接测试成功"
+                    }
                 else:
                     return {
                         "success": False,
-                        "message": f"{display_name} API响应格式异常"
+                        "message": f"{display_name} API响应为空"
                     }
+            elif response.status_code == 401:
+                return {
+                    "success": False,
+                    "message": f"{display_name} API密钥无效或已过期"
+                }
+            elif response.status_code == 402:
+                return {
+                    "success": False,
+                    "message": f"{display_name} 账户额度不足或Token Plan权益不可用"
+                }
+            elif response.status_code == 429:
+                return {
+                    "success": False,
+                    "message": f"{display_name} 请求过于频繁或触发速率限制"
+                }
             else:
                 return {
                     "success": False,
@@ -3673,7 +3786,7 @@ class ConfigService:
 
             # 如果没有指定模型，使用默认模型
             if not model_name:
-                model_name = "qwen-turbo"
+                model_name = "qwen3.7-plus"
                 logger.info(f"⚠️ 未指定模型，使用默认模型: {model_name}")
 
             logger.info(f"🔍 [DashScope 测试] 使用模型: {model_name}")
@@ -3689,9 +3802,9 @@ class ConfigService:
             data = {
                 "model": model_name,
                 "messages": [
-                    {"role": "user", "content": "你好，请简单介绍一下你自己。"}
+                    {"role": "user", "content": "只回复 OK，不要解释。"}
                 ],
-                "max_tokens": 50,
+                "max_tokens": 200,
                 "temperature": 0.1
             }
 
@@ -3699,23 +3812,32 @@ class ConfigService:
 
             if response.status_code == 200:
                 result = response.json()
-                if "choices" in result and len(result["choices"]) > 0:
-                    content = result["choices"][0]["message"]["content"]
-                    if content and len(content.strip()) > 0:
-                        return {
-                            "success": True,
-                            "message": f"{display_name} API连接测试成功"
-                        }
-                    else:
-                        return {
-                            "success": False,
-                            "message": f"{display_name} API响应为空"
-                        }
+                content = self._extract_chat_response_text(result)
+                if content:
+                    return {
+                        "success": True,
+                        "message": f"{display_name} API连接测试成功"
+                    }
                 else:
                     return {
                         "success": False,
-                        "message": f"{display_name} API响应格式异常"
+                        "message": f"{display_name} API响应为空"
                     }
+            elif response.status_code == 401:
+                return {
+                    "success": False,
+                    "message": f"{display_name} API密钥无效或已过期"
+                }
+            elif response.status_code == 402:
+                return {
+                    "success": False,
+                    "message": f"{display_name} 账户额度不足或Token Plan权益不可用"
+                }
+            elif response.status_code == 429:
+                return {
+                    "success": False,
+                    "message": f"{display_name} 请求过于频繁或触发速率限制"
+                }
             else:
                 return {
                     "success": False,
@@ -4594,17 +4716,13 @@ class ConfigService:
 
             # 🔧 智能版本号处理：只有在没有版本号的情况下才添加 /v1
             # 避免对已有版本号的URL（如智谱AI的 /v4）重复添加 /v1
-            import re
             logger.info(f"   [测试API] 原始 base_url: {base_url}")
-            base_url = base_url.rstrip("/")
-            logger.info(f"   [测试API] 去除斜杠后: {base_url}")
-
-            if not re.search(r'/v\d+$', base_url):
-                # URL末尾没有版本号，添加 /v1（OpenAI标准）
-                base_url = base_url + "/v1"
+            raw_base_url = base_url.rstrip("/")
+            base_url = self._normalize_openai_base_url(base_url)
+            logger.info(f"   [测试API] 去除斜杠后: {raw_base_url}")
+            if base_url != raw_base_url:
                 logger.info(f"   [测试API] 添加 /v1 版本号: {base_url}")
             else:
-                # URL已包含版本号（如 /v4），不添加
                 logger.info(f"   [测试API] 检测到已有版本号，保持原样: {base_url}")
 
             url = f"{base_url}/chat/completions"
@@ -4616,8 +4734,18 @@ class ConfigService:
             }
 
             # 🔥 根据不同厂家选择合适的测试模型
-            test_model = "gpt-3.5-turbo"  # 默认模型
-            if provider_name == "siliconflow":
+            provider_key = normalize_provider_key(provider_name)
+            test_model = "gpt-3.5-turbo"  # 默认模型，仅用于通用聚合渠道
+            if provider_key == "minimax_tokenplan":
+                test_model = "MiniMax-M3"
+                logger.info(f"🔍 MiniMax Token Plan 使用测试模型: {test_model}")
+            elif provider_key == "kimi_code":
+                test_model = "kimi-for-coding"
+                logger.info(f"🔍 Kimi Code Token Plan 使用测试模型: {test_model}")
+            elif provider_key == "moonshot":
+                test_model = "kimi-k2.6"
+                logger.info(f"🔍 Kimi / Moonshot API 使用测试模型: {test_model}")
+            elif provider_name == "siliconflow":
                 # 硅基流动使用免费的 Qwen 模型进行测试
                 test_model = "Qwen/Qwen2.5-7B-Instruct"
                 logger.info(f"🔍 硅基流动使用测试模型: {test_model}")
@@ -4628,35 +4756,29 @@ class ConfigService:
 
             # 使用一个通用的模型名称进行测试
             # 聚合渠道通常支持多种模型，这里使用 gpt-3.5-turbo 作为测试
-            data = {
+            data = normalize_request_options(provider_key, test_model, {
                 "model": test_model,
                 "messages": [
-                    {"role": "user", "content": "Hello, please respond with 'OK' if you can read this."}
+                    {"role": "user", "content": "只回复 OK，不要解释。"}
                 ],
                 "max_tokens": 200,  # 增加到200，给推理模型（如o1/gpt-5）足够空间
                 "temperature": 0.1
-            }
+            })
 
             response = requests.post(url, json=data, headers=headers, timeout=15)
 
             if response.status_code == 200:
                 result = response.json()
-                if "choices" in result and len(result["choices"]) > 0:
-                    content = result["choices"][0]["message"]["content"]
-                    if content and len(content.strip()) > 0:
-                        return {
-                            "success": True,
-                            "message": f"{display_name} API连接测试成功"
-                        }
-                    else:
-                        return {
-                            "success": False,
-                            "message": f"{display_name} API响应为空"
-                        }
+                content = self._extract_chat_response_text(result)
+                if content:
+                    return {
+                        "success": True,
+                        "message": f"{display_name} API连接测试成功"
+                    }
                 else:
                     return {
                         "success": False,
-                        "message": f"{display_name} API响应格式异常"
+                        "message": f"{display_name} API响应为空"
                     }
             elif response.status_code == 401:
                 return {
@@ -4667,6 +4789,16 @@ class ConfigService:
                 return {
                     "success": False,
                     "message": f"{display_name} API权限不足或配额已用完"
+                }
+            elif response.status_code == 402:
+                return {
+                    "success": False,
+                    "message": f"{display_name} 账户额度不足或Token Plan权益不可用"
+                }
+            elif response.status_code == 429:
+                return {
+                    "success": False,
+                    "message": f"{display_name} 请求过于频繁或触发速率限制"
                 }
             else:
                 try:

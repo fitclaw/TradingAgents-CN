@@ -17,6 +17,13 @@ _ALIASES = {
     "qianfan": "qianfan",
     "custom_openai": "custom_openai",
     "siliconflow": "siliconflow",
+    "minimax_tokenplan": "minimax_tokenplan",
+    "minimax-tokenplan": "minimax_tokenplan",
+    "minimax token plan": "minimax_tokenplan",
+    "kimi_code": "kimi_code",
+    "kimi-code": "kimi_code",
+    "kimi code": "kimi_code",
+    "moonshot": "moonshot",
 }
 
 _CANONICAL_ALIASES = {
@@ -55,6 +62,9 @@ def env_key_for_provider(provider: str) -> str:
         "siliconflow": "SILICONFLOW_API_KEY",
         "qianfan": "QIANFAN_API_KEY",
         "glm": "ZHIPU_API_KEY",
+        "minimax_tokenplan": "MINIMAX_TOKEN_PLAN_API_KEY",
+        "kimi_code": "KIMI_CODE_API_KEY",
+        "moonshot": "MOONSHOT_API_KEY",
     }
     return env_key_map.get(key, "")
 
@@ -73,6 +83,9 @@ def default_backend_url(provider: str) -> str:
         "qianfan": "https://qianfan.baidubce.com/v2",
         "siliconflow": "https://api.siliconflow.cn/v1",
         "glm": "https://open.bigmodel.cn/api/paas/v4/",
+        "minimax_tokenplan": "https://api.minimaxi.com/v1",
+        "kimi_code": "https://api.kimi.com/coding/v1",
+        "moonshot": "https://api.moonshot.cn/v1",
     }
     return default_urls.get(key, "https://dashscope.aliyuncs.com/compatible-mode/v1")
 

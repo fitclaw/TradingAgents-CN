@@ -68,6 +68,52 @@ class ModelValidationTests(unittest.TestCase):
 
         self.assertEqual(client.provider, "qianfan")
 
+    def test_factory_supports_cn_tokenplan_providers_as_openai_compatible(self):
+        fake_langchain_openai = ModuleType("langchain_openai")
+
+        class _FakeChatOpenAI:
+            def __init__(self, **kwargs):
+                self.kwargs = kwargs
+
+        fake_langchain_openai.ChatOpenAI = _FakeChatOpenAI
+
+        providers = {
+            "minimax_tokenplan": "MiniMax-M3",
+            "kimi_code": "kimi-for-coding",
+            "moonshot": "kimi-k2.6",
+        }
+
+        with patch.dict("sys.modules", {"langchain_openai": fake_langchain_openai}):
+            for provider, model in providers.items():
+                with self.subTest(provider=provider):
+                    client = create_llm_client(provider, model)
+                    self.assertEqual(client.provider, provider)
+
+    def test_deepseek_default_catalog_uses_v4_models_only(self):
+        known_models = get_known_models()
+
+        self.assertIn("deepseek-v4-flash", known_models["deepseek"])
+        self.assertIn("deepseek-v4-pro", known_models["deepseek"])
+        self.assertNotIn("deepseek-chat", known_models["deepseek"])
+        self.assertNotIn("deepseek-reasoner", known_models["deepseek"])
+        self.assertNotIn("deepseek-coder", known_models["deepseek"])
+
+    def test_qwen_default_catalog_uses_latest_bailian_models(self):
+        known_models = get_known_models()
+
+        for model in (
+            "qwen3.7-plus",
+            "qwen3.7-max",
+            "qwen3.6-plus",
+            "qwen3.6-flash",
+            "qwen3-vl-plus",
+            "qwen3-vl-flash",
+            "qwen-vl-ocr-latest",
+            "qwen3-omni-flash",
+        ):
+            with self.subTest(model=model):
+                self.assertIn(model, known_models["qwen"])
+
     def test_factory_supports_google_via_compatible_adapter(self):
         fake_google_adapter = ModuleType("tradingagents.llm_adapters.google_openai_adapter")
 
