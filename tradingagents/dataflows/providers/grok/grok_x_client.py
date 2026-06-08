@@ -42,6 +42,30 @@ SUPPORTED_CATEGORIES = ("news", "social", "macro")
 VALID_SENTIMENTS = ("positive", "negative", "neutral")
 
 
+def _is_valid_api_key(api_key: Optional[str]) -> bool:
+    """Reject empty / too-short / placeholder / truncated API keys.
+
+    Mirrors ``app.utils.api_key_utils.is_valid_api_key`` (kept local to avoid a
+    ``tradingagents`` -> ``app`` import; the llm_adapters in this package follow
+    the same replicate-locally convention). Notably treats the ``.env.example``
+    placeholder ``your_xai_api_key_here`` (your_*/*_here) as NOT configured, so a
+    user who copies the template unchanged gets a clear local error instead of an
+    opaque HTTP 401 from xAI.
+    """
+    if not api_key:
+        return False
+    key = str(api_key).strip()
+    if len(key) <= 10:
+        return False
+    if key.startswith("your_") or key.startswith("your-"):
+        return False
+    if key.endswith("_here") or key.endswith("-here"):
+        return False
+    if "..." in key:
+        return False
+    return True
+
+
 class GrokXError(RuntimeError):
     """Raised when the Grok/X adapter cannot produce a usable result."""
 
@@ -81,8 +105,8 @@ class GrokXClient:
         self._session = session  # injectable for tests
 
     def is_configured(self) -> bool:
-        """Whether a usable API key is present (dedicated XAI_API_KEY)."""
-        return bool(self.api_key)
+        """Whether a usable, non-placeholder API key is present (dedicated XAI_API_KEY)."""
+        return _is_valid_api_key(self.api_key)
 
     @staticmethod
     def _normalize_categories(categories: Sequence[str]) -> List[str]:
@@ -116,7 +140,9 @@ class GrokXClient:
         if not str(query or "").strip():
             raise GrokXError("query must not be empty")
         if not self.is_configured():
-            raise GrokXError(f"{ENV_API_KEY} not configured; cannot call xAI Grok API")
+            raise GrokXError(
+                f"{ENV_API_KEY} missing or placeholder; set a real key to call xAI Grok API"
+            )
 
         cats = self._normalize_categories(categories)
         limit = max(1, int(limit))
